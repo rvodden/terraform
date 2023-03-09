@@ -726,10 +726,8 @@ func (n *NodeAbstractResourceInstance) plan(
 		createBeforeDestroy = plannedChange.Action == plans.CreateThenDelete
 	}
 
-	// Evaluate the configuration
-	forEach, _ := evaluateForEachExpression(n.Config.ForEach, ctx)
-
-	keyData = EvalDataForInstanceKey(n.ResourceInstanceAddr().Resource.Key, forEach)
+	exp := ctx.InstanceExpander()
+	keyData = exp.GetResourceInstanceRepetitionData(n.Addr)
 
 	checkDiags := evalCheckRules(
 		addrs.ResourcePrecondition,
@@ -1683,8 +1681,8 @@ func (n *NodeAbstractResourceInstance) planDataSource(ctx EvalContext, checkRule
 	objTy := schema.ImpliedType()
 	priorVal := cty.NullVal(objTy)
 
-	forEach, _ := evaluateForEachExpression(config.ForEach, ctx)
-	keyData = EvalDataForInstanceKey(n.ResourceInstanceAddr().Resource.Key, forEach)
+	exp := ctx.InstanceExpander()
+	keyData = exp.GetResourceInstanceRepetitionData(n.Addr)
 
 	checkDiags := evalCheckRules(
 		addrs.ResourcePrecondition,
@@ -1963,8 +1961,8 @@ func (n *NodeAbstractResourceInstance) applyDataSource(ctx EvalContext, planned 
 		return nil, keyData, diags
 	}
 
-	forEach, _ := evaluateForEachExpression(config.ForEach, ctx)
-	keyData = EvalDataForInstanceKey(n.Addr.Resource.Key, forEach)
+	exp := ctx.InstanceExpander()
+	keyData = exp.GetResourceInstanceRepetitionData(n.Addr)
 
 	checkDiags := evalCheckRules(
 		addrs.ResourcePrecondition,
@@ -2267,10 +2265,8 @@ func (n *NodeAbstractResourceInstance) applyProvisioners(ctx EvalContext, state 
 func (n *NodeAbstractResourceInstance) evalProvisionerConfig(ctx EvalContext, body hcl.Body, self cty.Value, schema *configschema.Block) (cty.Value, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 
-	forEach, forEachDiags := evaluateForEachExpression(n.Config.ForEach, ctx)
-	diags = diags.Append(forEachDiags)
-
-	keyData := EvalDataForInstanceKey(n.ResourceInstanceAddr().Resource.Key, forEach)
+	exp := ctx.InstanceExpander()
+	keyData := exp.GetResourceInstanceRepetitionData(n.Addr)
 
 	config, _, configDiags := ctx.EvaluateBlock(body, schema, n.ResourceInstanceAddr().Resource, keyData)
 	diags = diags.Append(configDiags)
