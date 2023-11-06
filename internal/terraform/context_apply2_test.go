@@ -2336,8 +2336,7 @@ data "test_object" "foo" {}
 resource "test_object" "foo" {
 	value = data.test_object.foo.output
 }
-`,
-	})
+`})
 
 	// Manually mark the provider config as being mocked.
 	m.Module.ProviderConfigs["test"].Mock = true
@@ -2455,4 +2454,48 @@ resource "test_object" "foo" {
 	if diff := cmp.Diff(string(instance.Current.AttrsJSON), expected); len(diff) > 0 {
 		t.Errorf("expected:\n%s\nactual:\n%s\ndiff:\n%s", expected, string(instance.Current.AttrsJSON), diff)
 	}
+}
+
+func TestContext2Apply_forget(t *testing.T) {
+	addrA := mustResourceInstanceAddr("test_object.a")
+	m := testModuleInline(t, map[string]string{
+		"main.tf": `
+removed {
+  from = test_object.a
+  lifecycle {
+    destroy = false
+  }
+}
+`})
+
+	state := states.BuildState(func(s *states.SyncState) {
+		s.SetResourceInstanceCurrent(addrA, &states.ResourceInstanceObjectSrc{
+			AttrsJSON: []byte(`{"foo":"bar"}`),
+			Status:    states.ObjectReady,
+		}, mustProviderConfig(`provider["registry.terraform.io/hashicorp/test"]`))
+	})
+
+	p := simpleMockProvider()
+	ctx := testContext2(t, &ContextOpts{
+		Providers: map[addrs.Provider]providers.Factory{
+			addrs.NewDefaultProvider("test"): testProviderFuncFixed(p),
+		},
+	})
+
+	plan, diags := ctx.Plan(m, state, DefaultPlanOpts)
+	if diags.HasErrors() {
+		t.Fatalf("diags: %s", diags.Err())
+	}
+
+	state, diags = ctx.Apply(plan, m, nil)
+	if diags.HasErrors() {
+		t.Fatalf("diags: %s", diags.Err())
+	}
+
+	// check that the provider was not asked to destroy the resource
+	if p.ApplyResourceChangeCalled {
+		t.Fatalf("Expected ApplyResourceChange not to be called, but it was called")
+	}
+
+	checkStateString(t, state, `<no state>`)
 }
