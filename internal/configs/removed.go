@@ -11,7 +11,7 @@ import (
 )
 
 type Removed struct {
-	From *addrs.MoveEndpoint
+	From *addrs.RemoveTarget
 
 	// Destroy indicates that the resource should be destroyed, not just removed
 	// from state. Defaults to true.
@@ -33,7 +33,7 @@ func decodeRemovedBlock(block *hcl.Block) (*Removed, hcl.Diagnostics) {
 		from, traversalDiags := hcl.AbsTraversalForExpr(attr.Expr)
 		diags = append(diags, traversalDiags...)
 		if !traversalDiags.HasErrors() {
-			from, fromDiags := addrs.ParseMoveEndpoint(from)
+			from, fromDiags := addrs.ParseRemoveTarget(from)
 			diags = append(diags, fromDiags.ToHCL()...)
 			removed.From = from
 		}
